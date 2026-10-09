@@ -1,0 +1,523 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="author" content="MathisBrosseau">
+<title>Working Culture</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@700;800&family=DM+Sans:wght@400;500;700&display=swap">
+<style>
+  /* Layout: titre, deux cartes de score, puis roulette à gauche et défi à droite (empilés sur téléphone). */
+  :root {
+    --font-display: "Bricolage Grotesque", "Trebuchet MS", system-ui, sans-serif;
+    --font-body: "DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --bg: #1d2b3a;
+    --surface: #283a4d;
+    --fg: #f1f5f8;
+    --muted: #a6b4c1;
+    --line: #3b5167;
+    --accent: #f0a020;
+    --on-accent: #1b1300;
+    --team1: #d9402f;
+    --team2: #2478b8;
+    --team1-text: #ff8b7d;
+    --team2-text: #6bb7ee;
+    --ok: #1f9d55;
+    --ko: #c8392b;
+    --gold: #f5c542;
+    color-scheme: dark;
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --bg: #eaeff3;
+      --surface: #ffffff;
+      --fg: #1b2835;
+      --muted: #55677a;
+      --line: #cbd6df;
+      --accent: #e08a00;
+      --on-accent: #1b1300;
+      --team1-text: #c0301f;
+      --team2-text: #1d669e;
+      --gold: #b58300;
+      color-scheme: light;
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #eaeff3;
+    --surface: #ffffff;
+    --fg: #1b2835;
+    --muted: #55677a;
+    --line: #cbd6df;
+    --accent: #e08a00;
+    --on-accent: #1b1300;
+    --team1-text: #c0301f;
+    --team2-text: #1d669e;
+    --gold: #b58300;
+    color-scheme: light;
+  }
+
+  [hidden] { display: none !important; }
+  body { margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-body);
+    font-size: 16px;
+    line-height: 1.5;
+    padding-inline: 16px;
+    padding-block: 24px 40px;
+  }
+  .app { max-width: 980px; margin: 0 auto; display: grid; gap: 22px; }
+
+  header { display: grid; gap: 4px; text-align: center; }
+  h1 {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: clamp(2rem, 6vw, 3.2rem);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    line-height: 1.05;
+    margin: 0;
+  }
+  header p { margin: 0; color: var(--muted); }
+
+  .scores { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .team {
+    border-radius: 12px;
+    padding: 12px 16px;
+    color: #fff;
+    border: 3px solid transparent;
+    display: grid;
+    justify-items: center;
+    min-width: 0;
+    transition: border-color 0.2s, transform 0.2s;
+  }
+  .team.t1 { background: var(--team1); }
+  .team.t2 { background: var(--team2); }
+  .team.active { border-color: var(--fg); transform: translateY(-2px); }
+  .team h2 { margin: 0; font-family: var(--font-display); font-size: 1.1rem; font-weight: 700; }
+  .team .pts { font-family: var(--font-display); font-weight: 800; font-size: 2.8rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
+
+  .turn { margin: 0; text-align: center; font-weight: 700; font-size: 1.15rem; min-height: 1.7em; }
+  .turn.t1 { color: var(--team1-text); }
+  .turn.t2 { color: var(--team2-text); }
+  .turn.win { color: var(--gold); }
+
+  .stage { display: grid; grid-template-columns: minmax(0, 1fr); gap: 22px; align-items: start; }
+  @media (min-width: 860px) {
+    .stage { grid-template-columns: minmax(0, 440px) minmax(0, 1fr); gap: 32px; }
+  }
+
+  .wheel-col { display: grid; gap: 16px; justify-items: center; }
+  canvas { display: block; width: 100%; max-width: 440px; height: auto; aspect-ratio: 1 / 1; }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 22px;
+    display: grid;
+    gap: 14px;
+    min-width: 0;
+  }
+  .cat { display: flex; align-items: center; gap: 10px; font-family: var(--font-display); font-weight: 700; font-size: 1.2rem; }
+  .dot { width: 14px; height: 14px; border-radius: 50%; background: var(--line); flex: none; }
+  .defi { margin: 0; font-size: 1.2rem; line-height: 1.45; min-height: 6.2em; overflow-wrap: anywhere; }
+  .defi.idle { color: var(--muted); }
+
+  .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  button {
+    font: inherit;
+    font-weight: 700;
+    border: 0;
+    border-radius: 10px;
+    padding: 13px 18px;
+    cursor: pointer;
+    color: #fff;
+    transition: filter 0.15s, transform 0.1s;
+  }
+  button:hover:not(:disabled) { filter: brightness(1.1); }
+  button:active:not(:disabled) { transform: translateY(1px); }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  button:focus-visible { outline: 3px solid var(--fg); outline-offset: 2px; }
+  .spin { background: var(--accent); color: var(--on-accent); font-size: 1.1rem; padding: 14px 28px; }
+  .ok { background: var(--ok); }
+  .ko { background: var(--ko); }
+
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(8, 14, 22, 0.7);
+    display: grid;
+    place-items: center;
+    padding: 16px;
+    z-index: 10;
+  }
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 28px 24px;
+    max-width: 440px;
+    width: 100%;
+    display: grid;
+    gap: 14px;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+  }
+  .modal h2 { margin: 0; font-family: var(--font-display); font-size: 1.9rem; line-height: 1.15; color: var(--gold); }
+  .modal p { margin: 0; }
+  .final { font-weight: 700; font-variant-numeric: tabular-nums; color: var(--muted); }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; }
+  }
+
+  footer {
+    max-width: 980px;            
+    margin: 32px auto 0;
+    padding-top: 20px;
+    border-top: 1px solid var(--line);
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px 16px;
+    color: var(--muted);
+    font-family: var(--font-body);
+    font-size: 0.875rem;
+    line-height: 1.5;
+  }
+  footer a {
+    color: var(--fg);
+    text-decoration: underline;
+    text-decoration-color: var(--line);
+    text-underline-offset: 3px;
+    transition: text-decoration-color 0.15s;
+  }
+  footer a:hover { text-decoration-color: var(--accent); }
+  footer a:focus-visible {
+    outline: 3px solid var(--fg);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+  @media (max-width: 560px) {
+    footer { justify-content: center; text-align: center; }
+  }
+</style>
+
+<main class="app">
+  <header>
+    <h1>Working Culture</h1>
+    <p id="objectif"></p>
+  </header>
+
+  <section class="scores" aria-label="Scores">
+    <div class="team t1" id="team1"><h2>Team 1</h2><div class="pts" id="pts1">0</div></div>
+    <div class="team t2" id="team2"><h2>Team 2</h2><div class="pts" id="pts2">0</div></div>
+  </section>
+
+  <p class="turn" id="tour" aria-live="polite"></p>
+
+  <div class="stage">
+    <div class="wheel-col">
+      <canvas id="roue" aria-label="Roulette des catégories"></canvas>
+      <button class="spin" id="btnRoue" type="button">Spin the wheel</button>
+    </div>
+
+    <section class="panel" aria-live="polite">
+      <div class="cat"><span class="dot" id="dot"></span><span id="categorie">Category : -</span></div>
+      <p class="defi idle" id="defi">Spin the wheel to discover your challenge!</p>
+      <div class="actions">
+        <button class="ok" id="btnOk" type="button" disabled>✓ Challenge successfully met (+1)</button>
+        <button class="ko" id="btnKo" type="button" disabled>✕ Failed challenge (0)</button>
+      </div>
+    </section>
+  </div>
+</main>
+
+<div class="overlay" id="victoire" role="dialog" aria-modal="true" aria-labelledby="victoireTitre" hidden>
+  <div class="modal">
+    <h2 id="victoireTitre"></h2>
+    <p id="victoireTexte"></p>
+    <p class="final" id="victoireScore"></p>
+    <button class="spin" id="btnRejouer" type="button">Rejouer</button>
+  </div>
+</div>
+
+<footer>
+  <p>All content copyright © Mathis Brosseau</p>
+  <a href="https://www.linkedin.com/in/mathis-brosseau-011866339/" target="_blank">Link to the programmer's page</a>
+</footer>
+
+
+<script>
+(function () {
+  var POINTS_POUR_GAGNER = 5;
+
+  var CATEGORIES = [
+    { nom: "Communication", couleur: "#d64533", defis: [
+      "In 30 seconds, explain your job to a 7-year-old without using any job-related jargon.",
+      "Rewrite this blunt message so it sounds polite: “Your report is late and it’s a mess.”",
+        "Explain to your teammates how to write an effective professional email (3 tips).",
+        "Mime a message: your team must guess what you mean in under 1 minute.",
+        "Give constructive feedback to an imaginary colleague (method: fact, impact, suggestion)."
+    ]},
+    { nom: "Team spirit", couleur: "#d9731a", defis: [
+      "Line up in order of birthday (January to December) without speaking. You get one attempt.",
+      "Give one genuine compliment to the teammate on your left, then they do the same to the next person. You have 20 seconds in total.",
+        "Invent a team rallying cry in 1 minute and shout it out!",
+        "Form a human chain and pass an object from hand to hand without speaking.",
+        "Share a team memory where cooperation made all the difference."
+    ]},
+    { nom: "Management", couleur: "#b8860b", defis: [
+      "Give feedback on an imaginary presentation using the sandwich method: one positive, one improvement, one positive.",
+      "You have 4 urgent tasks and only 2 people. Prioritize in 45 seconds and justify your choices.",
+        "Name 3 qualities of a good manager and justify them in 30 seconds.",
+        "Organize the distribution of 4 tasks among your team members in 1 minute.",
+        "Lead a 1-minute mini one-to-one with a teammate."
+    ]},
+    { nom: "Creativity", couleur: "#1e9e5a", defis: [
+      "Invent an office gadget that doesn’t exist yet and pitch it in 30 seconds.",
+      "Name 5 uses for a paper clip other than holding papers together. You have 20 seconds.",
+        "Invent a new job that doesn't exist yet and present it in 45 seconds.",
+        "Imagine a coffee break of the future: describe it in 3 sentences."
+    ]},
+    { nom: "Company culture", couleur: "#138d75", defis: [
+      "Say out loud a 3-line welcome message for a new colleague arriving on Monday.",
+      "Name 3 company values and give a real-life example for each one.",
+        "Describe the ideal team ritual (Monday meeting, after-work drinks, etc.).",
+        "Name a well-known company with a strong culture and explain why.",
+        "Imagine a welcome charter for a new joiner in 3 rules."
+    ]},
+    { nom: "Work-life balance", couleur: "#2e86c1", defis: [
+        "Give 3 tips for switching off properly after work.",
+        "Give 3 tips for switching off after work in 20 seconds.",
+        "Mime an 'end of the workday' ritual. Your team has 30 seconds to guess it.",
+        "Explain what the right to disconnect is in 30 seconds.",
+        "Suggest 3 ideas for a 10-minute well-being break."
+    ]},
+    { nom: "Office & remote work", couleur: "#8e44ad", defis: [
+      "Act out a video-call mishap for 20 seconds (muted mic, frozen screen, cat on the keyboard). Your team guesses which one.",
+      "Name 5 collaboration tools in 15 seconds.",
+        "Imitate a colleague who says \"Can you hear me? I'm sharing my screen...\"",
+        "Describe your ideal office in 30 seconds (ergonomics, atmosphere, tools).",
+        "Name 5 collaboration tools used at work together in 15 seconds."
+    ]},
+    { nom: "Professional knowledge", couleur: "#d63384", defis: [
+      "Explain the difference between CC and BCC, and when to use each.",
+      "Say 5 common business expressions (for example “touch base” or “on the same page”) and use two of them in one sentence.",
+        "Name 5 typical business expressions (e.g. 'touch base').",
+        "What is a 'soft skill'? Give 4 examples.",
+        "Explain the difference between an internship, a work-study program and a fixed-term contract."
+    ]}
+  ];
+
+  var N = CATEGORIES.length;
+  var SEG = 360 / N;
+
+  var $ = function (id) { return document.getElementById(id); };
+  var canvas = $("roue");
+  var ctx = canvas.getContext("2d");
+  var TAILLE = 440;
+  var dpr = window.devicePixelRatio || 1;
+  canvas.width = TAILLE * dpr;
+  canvas.height = TAILLE * dpr;
+
+  var scores, equipe, rotation, vitesse, enRotation, defiEnCours, partieFinie, paquets;
+
+  function melanger(tab) {
+    for (var i = tab.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = tab[i]; tab[i] = tab[j]; tab[j] = t;
+    }
+    return tab;
+  }
+
+  function nouvellePartie() {
+    scores = { 1: 0, 2: 0 };
+    equipe = 1;
+    vitesse = 0;
+    enRotation = false;
+    defiEnCours = false;
+    partieFinie = false;
+    paquets = CATEGORIES.map(function () { return []; });
+    if (rotation === undefined) rotation = 0;
+    $("victoire").hidden = true;
+    $("categorie").textContent = "Category : -";
+    $("dot").style.background = "";
+    majDefi("Spin the wheel to discover your challenge!", true);
+    dessiner();
+    afficher();
+  }
+
+  function majDefi(texte, idle) {
+    var el = $("defi");
+    el.textContent = texte;
+    el.classList.toggle("idle", !!idle);
+  }
+
+  function afficher() {
+    $("pts1").textContent = scores[1];
+    $("pts2").textContent = scores[2];
+    $("team1").classList.toggle("active", equipe === 1 && !partieFinie);
+    $("team2").classList.toggle("active", equipe === 2 && !partieFinie);
+    var tour = $("tour");
+    tour.className = "turn " + (partieFinie ? "win" : "t" + equipe);
+    tour.textContent = partieFinie
+      ? "Team " + equipe + " win !"
+      : "It's " + equipe + " turn !";
+    $("btnRoue").disabled = enRotation || defiEnCours || partieFinie;
+    $("btnOk").disabled = !defiEnCours;
+    $("btnKo").disabled = !defiEnCours;
+  }
+
+  function dessiner() {
+    var cx = TAILLE / 2, cy = TAILLE / 2 + 8;
+    var r = TAILLE / 2 - 28;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, TAILLE, TAILLE);
+
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(rotation * Math.PI / 180);
+    for (var i = 0; i < N; i++) {
+      var a0 = (i * SEG - 90) * Math.PI / 180;
+      var a1 = ((i + 1) * SEG - 90) * Math.PI / 180;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.arc(0, 0, r, a0, a1);
+      ctx.closePath();
+      ctx.fillStyle = CATEGORIES[i].couleur;
+      ctx.fill();
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = "#ffffff";
+      ctx.stroke();
+
+      ctx.save();
+      ctx.rotate(((i + 0.5) * SEG - 90) * Math.PI / 180);
+      ctx.textAlign = "right";
+      ctx.textBaseline = "middle";
+      ctx.fillStyle = "#ffffff";
+      var taille = 15;
+      var maxW = r - 64;
+      do {
+        ctx.font = "700 " + taille + "px 'DM Sans', system-ui, sans-serif";
+        taille--;
+      } while (ctx.measureText(CATEGORIES[i].nom).width > maxW && taille > 9);
+      ctx.fillText(CATEGORIES[i].nom, r - 16, 0);
+      ctx.restore();
+    }
+    ctx.restore();
+
+    // Centre de la roue
+    ctx.beginPath();
+    ctx.arc(cx, cy, 30, 0, Math.PI * 2);
+    ctx.fillStyle = "#1d2b3a";
+    ctx.fill();
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = "#ffffff";
+    ctx.stroke();
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "800 16px 'Bricolage Grotesque', system-ui, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("WC", cx, cy + 1);
+
+    // Pointeur fixe en haut
+    ctx.beginPath();
+    ctx.moveTo(cx - 16, cy - r - 22);
+    ctx.lineTo(cx + 16, cy - r - 22);
+    ctx.lineTo(cx, cy - r + 8);
+    ctx.closePath();
+    ctx.fillStyle = "#ffffff";
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = "#1d2b3a";
+    ctx.stroke();
+  }
+
+  function indexSousPointeur() {
+    var angle = (((-rotation) % 360) + 360) % 360;
+    return Math.floor(angle / SEG) % N;
+  }
+
+  function lancer() {
+    if (enRotation || defiEnCours || partieFinie) return;
+    enRotation = true;
+    vitesse = 28 + Math.random() * 14;
+    $("categorie").textContent = "Category : ...";
+    $("dot").style.background = "";
+    majDefi("The wheel spin...", true);
+    afficher();
+
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      rotation = Math.random() * 360;
+      dessiner();
+      terminerRotation();
+      return;
+    }
+    var dernier = null;
+    function image(t) {
+      if (dernier === null) dernier = t;
+      var dt = Math.min((t - dernier) / 16.667, 3);
+      dernier = t;
+      rotation = (rotation + vitesse * dt) % 360;
+      vitesse *= Math.pow(0.985, dt);
+      dessiner();
+      if (vitesse > 0.25) requestAnimationFrame(image);
+      else terminerRotation();
+    }
+    requestAnimationFrame(image);
+  }
+
+  function terminerRotation() {
+    enRotation = false;
+    var i = indexSousPointeur();
+    if (!paquets[i].length) paquets[i] = melanger(CATEGORIES[i].defis.slice());
+    var defi = paquets[i].pop();
+    defiEnCours = true;
+    $("categorie").textContent = "Category : " + CATEGORIES[i].nom;
+    $("dot").style.background = CATEGORIES[i].couleur;
+    majDefi(defi, false);
+    afficher();
+  }
+
+  function valider(reussi) {
+    if (!defiEnCours) return;
+    defiEnCours = false;
+    if (reussi) scores[equipe] += 1;
+
+    if (scores[equipe] >= POINTS_POUR_GAGNER) {
+      partieFinie = true;
+      afficher();
+      finDePartie(equipe);
+      return;
+    }
+    equipe = equipe === 1 ? 2 : 1;
+    $("categorie").textContent = "Category : -";
+    $("dot").style.background = "";
+    majDefi("Spin the wheel to discover your challenge!", true);
+    afficher();
+  }
+
+  function finDePartie(gagnant) {
+    majDefi("Congratulations to " + gagnant + " !", false);
+    $("victoireTitre").textContent = "Victory for " + gagnant + " !";
+    $("victoireTexte").textContent =
+      "Congratulations! It wins the game with " + scores[gagnant] + " points.";
+    $("victoireScore").textContent =
+      "Final score : Team 1 = " + scores[1] + " | Team 2 = " + scores[2];
+    $("victoire").hidden = false;
+    $("btnRejouer").focus();
+  }
+
+  $("btnRoue").addEventListener("click", lancer);
+  $("btnOk").addEventListener("click", function () { valider(true); });
+  $("btnKo").addEventListener("click", function () { valider(false); });
+  $("btnRejouer").addEventListener("click", nouvellePartie);
+
+  $("objectif").textContent = "First team to " + POINTS_POUR_GAGNER + " points !";
+  rotation = 0;
+  nouvellePartie();
+})();
+</script>
